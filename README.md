@@ -29,7 +29,7 @@ Then open the URL shown in the terminal (typically `http://localhost:8501`).
 ## Example demo steps for judges
 
 1. Start the app with `streamlit run app.py`.
-2. Click **Load bundled sample dataset** (or upload your own CSV).
+2. Click **Load bundled sample dataset** (broken dataset is given in the data folder or upload your own CSV).
 3. Scroll through **Dataset preview** and **Data profiling summary** (rows, columns, dtypes, missing counts).
 4. Review **Detected issues** (JSON summary) and read the **AI explanations** for each category.
 5. Click **Repair Dataset** and confirm the **Cleaned dataset preview** shows fewer problems (e.g. duplicates and extreme outliers removed, types coerced where applicable).
