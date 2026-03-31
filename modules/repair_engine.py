@@ -23,6 +23,10 @@ def _fill_missing(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     for col in out.columns:
         if out[col].isna().all():
+            if pd.api.types.is_numeric_dtype(out[col]):
+                out[col] = 0.0
+            else:
+                out[col] = ""
             continue
         if pd.api.types.is_numeric_dtype(out[col]):
             med = out[col].median()
@@ -44,10 +48,34 @@ def _drop_outlier_rows(df: pd.DataFrame) -> pd.DataFrame:
         return out
     sub = out[numeric_cols].copy()
     filled = sub.fillna(sub.median())
+    filled = filled.replace([np.inf, -np.inf], np.nan).fillna(0.0)
     scaler = StandardScaler()
     z = scaler.fit_transform(filled)
     keep = ~np.any(np.abs(z) > 3, axis=1)
     return out.loc[keep].copy()
+
+
+def _downcast_whole_number_floats(df: pd.DataFrame) -> pd.DataFrame:
+    """Use int64 for float columns whose values are all finite whole numbers (e.g. salary, ids)."""
+    out = df.copy()
+    for col in out.columns:
+        if not pd.api.types.is_float_dtype(out[col]):
+            continue
+        s = out[col]
+        if s.isna().any():
+            continue
+        vals = s.to_numpy(dtype=np.float64, copy=False)
+        if vals.size == 0:
+            continue
+        if not np.isfinite(vals).all():
+            continue
+        if not (np.abs(vals - np.round(vals)) < 1e-9).all():
+            continue
+        rounded = np.round(vals).astype(np.int64, copy=False)
+        if rounded.max() > np.iinfo(np.int64).max or rounded.min() < np.iinfo(np.int64).min:
+            continue
+        out[col] = rounded
+    return out
 
 
 def _drop_corrupted_rows(df: pd.DataFrame, nan_threshold_ratio: float = 0.5) -> pd.DataFrame:
@@ -61,9 +89,10 @@ def repair_dataset(df: pd.DataFrame) -> pd.DataFrame:
     Apply fixes in order:
     1. Coerce object columns that are mostly numeric via to_numeric(errors='coerce')
     2. Drop rows with excessive NaN (corrupted/partial rows)
-    3. Fill remaining missing: median (numeric), mode (non-numeric)
+    3. Fill missing: all-null numeric columns -> 0.0, all-null text -> ""; else median (numeric) / mode (text)
     4. Remove duplicate rows
-    5. Remove rows with |z| > 3 on any numeric column
+    5. Remove rows with |z| > 3 on any numeric column (scaling uses a NaN-safe filled matrix)
+    6. Downcast float columns to int64 when every value is a finite whole number
     """
     cleaned = df.copy()
     cleaned = _coerce_numeric_columns(cleaned)
@@ -72,4 +101,5 @@ def repair_dataset(df: pd.DataFrame) -> pd.DataFrame:
     cleaned = cleaned.drop_duplicates().reset_index(drop=True)
     cleaned = _drop_outlier_rows(cleaned)
     cleaned = cleaned.reset_index(drop=True)
+    cleaned = _downcast_whole_number_floats(cleaned)
     return cleaned

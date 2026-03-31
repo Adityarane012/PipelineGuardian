@@ -78,6 +78,7 @@ def _outlier_row_mask(df: pd.DataFrame, numeric_cols: List[str]) -> pd.Series:
         return pd.Series(False, index=df.index)
     sub = df[numeric_cols].apply(lambda s: pd.to_numeric(s, errors="coerce"))
     filled = sub.fillna(sub.median())
+    filled = filled.replace([np.inf, -np.inf], np.nan).fillna(0.0)
     if filled.empty or len(filled) < 2:
         return pd.Series(False, index=df.index)
     scaler = StandardScaler()
@@ -87,14 +88,7 @@ def _outlier_row_mask(df: pd.DataFrame, numeric_cols: List[str]) -> pd.Series:
     return pd.Series(row_bad, index=df.index)
 
 
-def detect_errors(df: pd.DataFrame) -> Dict[str, Any]:
-    """
-    Scan dataframe for missing values, duplicates, datatype problems, outliers, mixed types.
-
-    Returns
-    -------
-    dict with keys suitable for UI and repair_engine (see app.py).
-    """
+def _detect_errors_core(df: pd.DataFrame) -> Dict[str, Any]:
     missing_per_col = df.isna().sum().to_dict()
     missing_per_col = {str(k): int(v) for k, v in missing_per_col.items()}
 
@@ -120,6 +114,7 @@ def detect_errors(df: pd.DataFrame) -> Dict[str, Any]:
     if numeric_cols:
         sub_oc = df[numeric_cols].apply(lambda s: pd.to_numeric(s, errors="coerce"))
         filled_oc = sub_oc.fillna(sub_oc.median())
+        filled_oc = filled_oc.replace([np.inf, -np.inf], np.nan).fillna(0.0)
         if len(filled_oc) >= 2:
             z_mat = StandardScaler().fit_transform(filled_oc)
             for i, col in enumerate(numeric_cols):
@@ -142,3 +137,37 @@ def detect_errors(df: pd.DataFrame) -> Dict[str, Any]:
         "corrupted_rows": corrupted_rows,
         "corrupted_row_threshold_nan_count": thresh,
     }
+
+
+def detect_errors(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Scan dataframe for missing values, duplicates, datatype problems, outliers, mixed types.
+
+    Returns
+    -------
+    dict with keys suitable for UI and repair_engine (see app.py).
+    If scanning fails, returns the same shape with ``scan_failed_message`` set and conservative defaults.
+    """
+    try:
+        return _detect_errors_core(df)
+    except Exception:
+        missing_per_col: Dict[str, int] = {}
+        try:
+            missing_per_col = {str(k): int(v) for k, v in df.isna().sum().to_dict().items()}
+        except Exception:
+            pass
+        ncols = len(df.columns)
+        thresh = max(1, int(0.5 * ncols)) if ncols else 1
+        return {
+            "missing_values": missing_per_col,
+            "duplicate_rows": 0,
+            "incorrect_datatypes": [],
+            "outliers": {"rows_flagged": 0, "by_column": {}},
+            "mixed_type_columns": [],
+            "corrupted_rows": 0,
+            "corrupted_row_threshold_nan_count": thresh,
+            "scan_failed_message": (
+                "The full issue scan could not finish (unusual structure or cell values). "
+                "Basic missing counts are shown where possible; you can still try repair."
+            ),
+        }
