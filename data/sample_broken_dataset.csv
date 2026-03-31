@@ -1,0 +1,14 @@
+id,name,age,salary,department,score
+1,Alice,28,55000,Engineering,88.5
+2,Bob,34,62000,Sales,91.0
+3,Charlie,,48000,Engineering,bad
+4,Diana,31,58000,HR,85.2
+5,Eve,29,51000,Sales,invalid
+6,Frank,45,72000,Engineering,92.1
+7,Grace,27,47000,HR,
+1,Alice,28,55000,Engineering,88.5
+9,Henry,999,60000,Sales,95.0
+10,Ivy,40,61000,Engineering,89.7
+11,Ken,33,,Marketing,77.0
+12,Lia,30,54000,Engineering,90.0
+13,Mia,26,49000,,82.5
