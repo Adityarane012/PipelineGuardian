@@ -17,9 +17,14 @@ This project is a **Streamlit** app that:
 
 ## How to run locally
 
-From the project root (`ai-data-pipeline-auto-repair/`):
+From the project root (`PipelineGuardian/`):
 
 ```bash
+# Optional but recommended: create and activate a virtual environment
+python -m venv venv
+venv\Scripts\activate      # Windows
+# source venv/bin/activate # Mac/Linux
+
 pip install -r requirements.txt
 streamlit run app.py
 ```
